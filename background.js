@@ -30,6 +30,7 @@ function message_listener(message) {
 
 // Livesplit command handler
 function handle_livesplit_operation(command) {
+    console.log("logging: command", command);
     switch (command) {
         case "reset_leave_game":
             if (options.reset_leave_game) {
@@ -43,6 +44,10 @@ function handle_livesplit_operation(command) {
                 send_ws("switchto realtime");
             }
             break;
+        case "unpausegametime":
+            send_ws("unpausegametime");
+            break;
+
         case "perfect_score_intermediate":
             if (!options.split_seed) {
                 send_ws("split");

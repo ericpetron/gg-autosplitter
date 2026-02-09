@@ -4,12 +4,71 @@ const scoreFieldSelector = "[class^=round-result_pointsIndicatorWrapper]";
 const gameMapSelector = "[class^=game_canvas]";
 let guessed = false;
 
+
+
+function waitForAnimationComplete(scoreElement, timeout = 1000) {
+    return new Promise(resolve => {
+        // Find the score element - adjust selector if needed
+        
+        
+        let lastValue = scoreElement.textContent;
+        let stableCount = 0;
+        const timeout = setTimeout(() => {
+          observer.disconnect();
+          resolve(lastValue); // Fallback after 2 seconds
+        }, 2000);
+        
+        const observer = new MutationObserver(() => {
+          const currentValue = scoreElement.textContent;
+          
+          if (currentValue === lastValue) {
+            stableCount++;
+            // Score stopped incrementing
+            if (stableCount >= 2) {
+              clearTimeout(timeout);
+              observer.disconnect();
+              resolve(parseInt(currentValue) || currentValue);
+            }
+          } else {
+            stableCount = 0;
+            lastValue = currentValue;
+          }
+        });
+        
+        observer.observe(scoreElement, {
+          characterData: true,
+          subtree: true,
+          childList: true
+        });
+      });
+    }
+  
+  // Usage
+  
+
+
+
+
 // Execute this function when score field is detected
 function handleScoreAppearance(score_field) {
     // Without a timeout we get 0 cause score is not set yet
-    setTimeout(() => {
-        score = score_field.children[0].textContent;
+    setTimeout(async () => {
+        var score;
+        //! on firefox it is not sending a 5,000 properly. will debug
+        //! it is selecting "next" as the text content, likely because the value isnt a button
+
+        // ? ADD BLOCK
+        try {
+            score = await waitForAnimationComplete(score_field.children[0]);
+            console.log('Final value:', score);
+          } catch (error) {
+            console.error('Failed to get final value:', error);
+          }
+        // ? 
+
         close_round_btn = document.querySelector("button[data-qa='close-round-result']").textContent;
+        console.log("THIS IS THE SCORE VAL: ", score);
+        
         if (score == "5,000") {
             if (close_round_btn == "Next") {
                 send_ws("perfect_score_intermediate");
