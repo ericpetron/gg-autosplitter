@@ -1,100 +1,38 @@
-// Selector of score field
-const scoreFieldSelector = "[class^=round-result_pointsIndicatorWrapper]";
-
-const gameMapSelector = "[class^=game_canvas]";
 let guessed = false;
 
+// Inject script to listen to the post req for round data
+const script = document.createElement("script");
+script.src = chrome.runtime.getURL("inject.js");
+script.onload = () => script.remove();
+(document.head || document.documentElement).appendChild(script);
 
+window.addEventListener("geoguessr-guess-result", (e) => {
+    const data = e.detail;
+    const lastGuess = data?.player?.guesses?.at(-1);
+    const roundScore = lastGuess?.roundScoreInPoints;
+    const distance = lastGuess?.distanceInMeters;
+    const roundNumber = data?.round;
+    const roundCount = data?.roundCount ?? 5;
 
-function waitForAnimationComplete(scoreElement, timeout = 1000) {
-    return new Promise(resolve => {
-        // Find the score element - adjust selector if needed
-        
-        
-        let lastValue = scoreElement.textContent;
-        let stableCount = 0;
-        const timeout = setTimeout(() => {
-          observer.disconnect();
-          resolve(lastValue); // Fallback after 2 seconds
-        }, 2000);
-        
-        const observer = new MutationObserver(() => {
-          const currentValue = scoreElement.textContent;
-          
-          if (currentValue === lastValue) {
-            stableCount++;
-            // Score stopped incrementing
-            if (stableCount >= 2) {
-              clearTimeout(timeout);
-              observer.disconnect();
-              resolve(parseInt(currentValue) || currentValue);
-            }
-          } else {
-            stableCount = 0;
-            lastValue = currentValue;
-          }
-        });
-        
-        observer.observe(scoreElement, {
-          characterData: true,
-          subtree: true,
-          childList: true
-        });
-      });
+    console.log("Round result from POST:", { roundScore, distance, roundNumber, roundCount });
+
+    chrome.runtime.sendMessage({
+      type: "ROUND_RESULT",
+      roundScore,
+      distance,
+      roundNumber,
+      raw: data
+    });
+
+    // Livesplit commands from POST data (no DOM observer)
+    const isPerfect = roundScore === 5000;
+    const isFinalRound = roundNumber === roundCount;
+    if (isPerfect) {
+      send_ws(isFinalRound ? "perfect_score_final" : "perfect_score_intermediate");
+    } else {
+      send_ws(isFinalRound ? "missed_loc_final" : "missed_loc_intermediate");
     }
-  
-  // Usage
-  
-
-
-
-
-// Execute this function when score field is detected
-function handleScoreAppearance(score_field) {
-    // Without a timeout we get 0 cause score is not set yet
-    setTimeout(async () => {
-        var score;
-        //! on firefox it is not sending a 5,000 properly. will debug
-        //! it is selecting "next" as the text content, likely because the value isnt a button
-
-        // ? ADD BLOCK
-        try {
-            score = await waitForAnimationComplete(score_field.children[0]);
-            console.log('Final value:', score);
-          } catch (error) {
-            console.error('Failed to get final value:', error);
-          }
-        // ? 
-
-        close_round_btn = document.querySelector("button[data-qa='close-round-result']").textContent;
-        console.log("THIS IS THE SCORE VAL: ", score);
-        
-        if (score == "5,000") {
-            if (close_round_btn == "Next") {
-                send_ws("perfect_score_intermediate");
-            } else {
-                send_ws("perfect_score_final");
-            }
-        } else {
-            if (close_round_btn == "Next") {
-                send_ws("missed_loc_intermediate");
-            } else {
-                send_ws("missed_loc_final");
-            }
-        }
-    }, 1);
-}
-
-// Observer config
-const observer = new MutationObserver((mutationsList, observer) => {
-    const score_field = document.querySelector(scoreFieldSelector);
-    console.debug("Watching for score appearance");
-    if (score_field) {
-        console.debug("score field detected");
-        handleScoreAppearance(score_field);
-        observer.disconnect();
-    }
-});
+  });
 
 // Send message through websocket
 function send_ws(operation) {
@@ -114,9 +52,7 @@ function is_last_round() {
 }
 
 function guess() {
-    // observe score field when guessing
-    observer.observe(document.querySelector(gameMapSelector), { subtree: true, attributes: true, childList: true });
-    guessed = true
+    guessed = true;
     send_ws("pausegametime");
 }
 
