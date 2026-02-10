@@ -87,30 +87,37 @@ let start_list = ['join-challenge-button', 'start-challenge-button', 'start-game
 let guess_list = ['perform-guess'];
 let next_list = ['close-round-result'];
 
-// Event button listener
+// Event button listener (use closest() so clicking button's child still counts)
 document.addEventListener('click', function (e) {
-    if (e.target && is_start_button(e.target)) {
+    const target = e.target;
+    if (target && is_start_button(target)) {
         start();
     }
-    if (e.target && guess_list.includes(e.target.dataset.qa)) {
+    if (target && guess_list.includes(target.dataset.qa)) {
         guess();
     }
-    if (e.target && next_list.includes(e.target.dataset.qa) && e.target.textContent == "Next") {
+    const nextBtn = target?.closest?.("button[data-qa='close-round-result']");
+    if (nextBtn && nextBtn.textContent.trim() === "Next") {
         next();
     }
-    if (e.target && e.target.textContent == "Leave game") {
+    if (target && target.textContent === "Leave game") {
         reset_leave_game();
     }
 });
 
 // Space bar listener
 document.body.onkeyup = function (e) {
-    if (e.key == " " ||
-        e.code == "Space" ||
-        e.keyCode == 32
-    ) {
-        checkSpaceGuess()
-        checkSpaceStart()
+    if (e.key === " " || e.code === "Space" || e.keyCode === 32) {
+        checkSpaceNext();
+        checkSpaceGuess();
+        checkSpaceStart();
+    }
+};
+
+function checkSpaceNext() {
+    const nextBtn = document.querySelector("button[data-qa='close-round-result']");
+    if (nextBtn && nextBtn.textContent.trim() === "Next") {
+        next();
     }
 }
 
